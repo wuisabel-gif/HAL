@@ -4,8 +4,7 @@
   <img src="assets/hal9000.svg" alt="HAL 9000 camera eye" width="300">
 </p>
 <p align="center">
-  <sub>HAL 9000 from <em>2001: A Space Odyssey</em>. © Warner Bros. Entertainment Inc.
-  Used for commentary and identification; no affiliation or endorsement implied.</sub>
+  <sub>HAL 9000 from <em>2001: A Space Odyssey</em>. © Warner Bros. Entertainment Inc.</sub>
 </p>
 
 A tiny **capability-secure plugin sandbox**: an F# host that loads untrusted
