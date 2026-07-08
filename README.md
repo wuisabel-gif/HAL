@@ -177,9 +177,69 @@ clean the socket code is*. No malice detection needed.
 - Cursor rule: `.cursor/rules/capability-security-review.mdc`
 - Codex: `AGENTS.md`
 
-To use it in another repo, copy the same three paths into that repo's root.
-For Claude Code you can instead install it once for all projects by copying
-the skill folder to `~/.claude/skills/capability-security-review/`.
+### SOP: Claude Code
+
+1. **Install.** Either copy `.claude/skills/capability-security-review/` into
+   the target repo's root, or install once for every project:
+
+   ```bash
+   mkdir -p ~/.claude/skills
+   cp -r .claude/skills/capability-security-review ~/.claude/skills/
+   ```
+
+2. **Trigger.** Open `claude` in the repo with the PR and ask for a review;
+   the skill auto-triggers on review requests, or invoke it by name:
+
+   ```
+   review PR 42 for security
+   /capability-security-review the diff between main and this branch
+   ```
+
+   Headless (CI or scripts):
+
+   ```bash
+   gh pr checkout 42 && claude -p "capability security review of this branch vs main"
+   ```
+
+3. **Read the output.** Expect: a one-line statement of the PR's purpose, an
+   inventory of every authority the diff reaches for, findings in the form
+   *reach → why unneeded → smallest fix*, and a verdict line
+   (approve / approve-with-changes / reject). If any of those parts is
+   missing, say "follow the capability-security-review skill" and it will
+   redo the review against the checklist.
+
+### SOP: Cursor
+
+1. **Install.** Copy `.cursor/rules/capability-security-review.mdc` into the
+   target repo's `.cursor/rules/` folder. It is an agent-requested rule, so
+   it loads only when review work comes up, not on every chat.
+2. **Trigger.** In Agent chat, ask it to review the PR branch or a diff
+   ("review this diff for security"). To force the rule explicitly, mention
+   `@capability-security-review` in the message.
+3. **Verify it engaged.** Cursor lists applied rules in the context panel of
+   the response. If the rule is not listed, mention it with `@` and re-ask.
+
+### SOP: Codex
+
+1. **Install.** Copy this repo's `AGENTS.md` to the target repo's root. If
+   the repo already has an `AGENTS.md`, paste in the "Reviewing PRs /
+   third-party code" section instead of replacing the file. Also copy
+   `.claude/skills/capability-security-review/SKILL.md` (same path), since
+   `AGENTS.md` points to it for the full procedure.
+2. **Trigger.** Codex reads `AGENTS.md` automatically at session start, so a
+   plain request is enough:
+
+   ```bash
+   codex "review the diff between main and this branch"
+   ```
+
+3. **Read the output.** Same contract as Claude Code: purpose, authority
+   inventory, findings, verdict. If it summarizes style instead, reply
+   "apply the capability security review from AGENTS.md".
+
+One rule of use across all three: paste or name the PR's *stated purpose*
+(title + description) when you ask, because every judgment in the skill
+compares reach against purpose. A vague purpose produces a vague review.
 
 ## Extending it
 
