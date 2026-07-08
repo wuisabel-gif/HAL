@@ -200,6 +200,13 @@ stays inside its granted authority both on paper and at runtime. HAL is the
 small, working example of that last option: the sandbox where the grant is
 actually enforced.
 
+This repo ships that pattern as a workflow: `.github/workflows/sandbox-pr.yml`
+builds a PR and runs the host inside `docker --network none`, then fails the
+job unless all three capability boundaries held. It triggers on `pull_request`
+(not `pull_request_target`), so a fork PR runs with no repository secrets and a
+read-only token. It isolates the *execution*; isolating the build too means
+vendoring dependencies and building offline.
+
 - Canonical skill: `.claude/skills/capability-security-review/SKILL.md`
 - Cursor rule: `.cursor/rules/capability-security-review.mdc`
 - Codex: `AGENTS.md`

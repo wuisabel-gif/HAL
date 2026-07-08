@@ -1,0 +1,67 @@
+# Detonate a PR's code in an isolated, network-denied job before anyone runs it
+# locally. This is the concrete "detonate before you download" step from the
+# README, wired into CI.
+#
+# Two things make it safe, and both are load-bearing:
+#   - `on: pull_request` (NOT pull_request_target): fork PRs run with a
+#     read-only GITHUB_TOKEN and NO repository secrets. Never switch this to
+#     pull_request_target for untrusted code — that hands secrets to the PR.
+#   - the execution step runs inside `docker --network none`, so even if the
+#     capability layer failed, the OS denies the code any network at all.
+name: sandbox-pr
+
+on:
+  pull_request:
+
+# Grant the workflow the minimum: read the code, nothing else.
+permissions:
+  contents: read
+
+concurrency:
+  group: sandbox-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  detonate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15   # backstop: a real infinite loop can't hang CI forever
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      # Build with network ON (fetching deps needs it).
+      # ponytail: build scripts / cargo deps still run with network here. To
+      # isolate the BUILD too, vendor deps and build offline; this workflow
+      # only guarantees a network-denied EXECUTION.
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build plugins to wasm
+        run: |
+          for p in resize-good exfiltrate-evil; do
+            ( cd "plugins/$p" && cargo build --release --target wasm32-unknown-unknown )
+          done
+
+      - name: Publish host
+        run: dotnet publish host -c Release -o out
+
+      # Detonation: run the untrusted code with NO network and no secrets.
+      # cwd is the repo root so the host's relative wasm paths resolve.
+      - name: Run in a network-denied sandbox
+        run: |
+          docker run --rm --network none \
+            -v "$PWD:/work" -w /work \
+            mcr.microsoft.com/dotnet/runtime:10.0 \
+            ./out/Hal | tee run.log
+
+      # Runnable check: the demo is only "safe" if all three refusals fired.
+      # Any missing line fails the job.
+      - name: Assert all three refusals fired
+        run: |
+          grep -q "denied kv_read"      run.log
+          grep -q "BLOCKED the request" run.log
+          grep -q "KILLED the plugin"   run.log
+          echo "All three capability boundaries held."
