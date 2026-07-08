@@ -1,0 +1,14 @@
+---
+description: Capability-security review of PRs, diffs, or third-party/plugin code — apply when reviewing pull requests, auditing contributed code, or judging whether code is safe.
+alwaysApply: false
+---
+
+When reviewing a PR, diff, or any third-party/untrusted code, read and follow
+the procedure in @.claude/skills/capability-security-review/SKILL.md
+
+Core rule if the file is unavailable: inventory every point where the code
+reaches for outside authority (network, filesystem, process/env, dynamic code,
+data scopes, new dependencies, CI/manifest changes), compare against the PR's
+stated purpose, and flag every reach the purpose doesn't require — even if the
+code looks benign. Enforcement must live on the trusted side; checks inside
+untrusted code count for nothing.
