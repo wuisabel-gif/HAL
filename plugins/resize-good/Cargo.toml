@@ -1,0 +1,15 @@
+[package]
+name = "resize-good"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+name = "resize_good"
+
+[dependencies]
+extism-pdk = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
