@@ -181,6 +181,25 @@ one: **what authority does this diff reach for, and does its stated purpose
 require it?** A formatter that opens a socket is a finding *no matter how
 clean the socket code is*. No malice detection needed.
 
+### Detonate before you download
+
+Reading a diff only catches what is legible. Some overreach (obfuscated
+triggers, `postinstall` and build scripts, URLs assembled at runtime) never
+shows up until the code actually runs. So the skill's second rule is: if
+reviewing a PR means running it (building, installing dependencies, running
+tests, launching the app), never do that on your own machine with real
+credentials and network. Run it somewhere disposable first.
+
+The agent is told to refuse the local run and route the code to an isolated
+environment instead: an ephemeral container with no secrets and no network, a
+throwaway CI runner or VM, a microVM/gVisor sandbox, or (for a WASM plugin) a
+capability-scoped host like HAL itself, which grants the code only the
+authority its policy allows. Watch what it does in there (outbound
+connections, files written, processes spawned), and bring it local only if it
+stays inside its granted authority both on paper and at runtime. HAL is the
+small, working example of that last option: the sandbox where the grant is
+actually enforced.
+
 - Canonical skill: `.claude/skills/capability-security-review/SKILL.md`
 - Cursor rule: `.cursor/rules/capability-security-review.mdc`
 - Codex: `AGENTS.md`

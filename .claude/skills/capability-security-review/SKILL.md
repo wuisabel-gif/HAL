@@ -76,6 +76,40 @@ A reviewer who judges code by how it reads misses, specifically:
    Then one verdict line: **approve / approve-with-changes / reject**, with
    the single most important reason.
 
+## Never execute untrusted code locally — detonate it in a sandbox first
+
+Static reading only catches what is legible. Obfuscated triggers, `postinstall`
+and build scripts, and runtime-built URLs stay invisible until the code *runs*.
+So if reviewing this PR requires running it (building it, installing its deps,
+executing its tests, launching the app), do NOT do that on the host machine
+with real credentials, tokens, SSH keys, or network access. That is the exact
+moment a benign-looking diff exfiltrates or persists.
+
+Instead:
+
+- **Refuse the local run.** State plainly that you will not `npm install`,
+  `pip install`, `cargo run`, `make`, or run the app for an untrusted diff on
+  the developer's machine. This refusal is the correct behavior, not an
+  inconvenience.
+- **Route it to an isolated environment** where overreach hits a wall instead
+  of real assets. In rough order of cheap-and-available:
+  - an ephemeral container with no secrets mounted and `--network none`
+    (add a network only after review, scoped to the hosts the purpose needs);
+  - a disposable CI runner or cloud VM you can throw away after;
+  - a microVM / gVisor / Firecracker sandbox for stronger isolation;
+  - for a WASM plugin specifically, a capability-scoped host like HAL — it
+    runs the code with *only* the authority its policy grants and nothing
+    else, so a denied reach fails at the boundary.
+- **Watch what it actually does** in that sandbox: outbound connections,
+  files written, processes spawned, env vars read. Runtime behavior that the
+  diff's stated purpose doesn't explain is a finding, same rule as static.
+- **Only then bring it local**, and only if it stayed inside its granted
+  authority both on paper and at runtime.
+
+The principle is the same one this repo demonstrates: don't decide whether to
+trust the code, decide what authority to grant it — and grant that authority
+in a place where the grant is enforced.
+
 ## Red flags that end the benefit of the doubt
 
 - Encoded/obfuscated strings that decode to URLs, hostnames, or shell commands
