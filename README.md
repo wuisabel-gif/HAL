@@ -130,7 +130,7 @@ wasn't granted. What WASM does **not** prevent is a plugin corrupting or misusin
 boundary you care about, but don't oversell it as "untrusted code can never misbehave
 at all."
 
-## The review skill (Claude Code / Cursor / Codex)
+## The review skill (Claude Code / Cursor / Codex / Gemini)
 
 HAL's idea also ships as an **agent skill** for AI code review: instead of
 guessing whether PR code "looks malicious", the agent inventories what
@@ -184,6 +184,7 @@ clean the socket code is*. No malice detection needed.
 - Canonical skill: `.claude/skills/capability-security-review/SKILL.md`
 - Cursor rule: `.cursor/rules/capability-security-review.mdc`
 - Codex: `AGENTS.md`
+- Gemini CLI: `GEMINI.md`; Gemini Code Assist (GitHub app): `.gemini/styleguide.md`
 
 ### SOP: Claude Code
 
@@ -245,7 +246,28 @@ clean the socket code is*. No malice detection needed.
    inventory, findings, verdict. If it summarizes style instead, reply
    "apply the capability security review from AGENTS.md".
 
-One rule of use across all three: paste or name the PR's *stated purpose*
+### SOP: Gemini
+
+Two separate Gemini agents, two files:
+
+1. **Gemini CLI** (terminal agent). Copy `GEMINI.md` to the target repo's
+   root (merge the review section if one already exists) along with the
+   SKILL.md it points to. Gemini CLI reads `GEMINI.md` at session start, so
+   a plain request works:
+
+   ```bash
+   gemini "review the diff between main and this branch"
+   ```
+
+2. **Gemini Code Assist** (the GitHub app that auto-reviews PRs). Copy
+   `.gemini/styleguide.md` into the target repo and install the app on it.
+   The style guide is injected into every automatic PR review, so the
+   capability checklist applies with no per-PR action. To re-run a review on
+   demand, comment `/gemini review` on the PR. The styleguide is
+   self-contained on purpose: the app does not follow pointers to other
+   files.
+
+One rule of use across all of these: paste or name the PR's *stated purpose*
 (title + description) when you ask, because every judgment in the skill
 compares reach against purpose. A vague purpose produces a vague review.
 
