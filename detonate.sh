@@ -54,7 +54,11 @@ if [ "$DEMO" = 1 ]; then
     ( cd "plugins/$p" && cargo build --release --target wasm32-unknown-unknown )
   done
   dotnet publish host -c Release -o out >/dev/null
-  RUN="./out/Hal"
+  # Run the portable IL DLL via `dotnet`, not the apphost: publishing on macOS
+  # produces a Mach-O apphost that can't exec in a Linux container. The DLL is
+  # arch-neutral and the runtime image ships `dotnet`; native libextism is
+  # resolved from out/runtimes/<container-arch>/native.
+  RUN="dotnet out/Hal.dll"
   DIR="."
 elif [ -n "$BUILD" ]; then
   echo ">> build on host (network on): $BUILD"
@@ -78,7 +82,7 @@ docker run --rm \
   -v "$SRC:/work:ro" \
   -w /work \
   "$IMAGE" \
-  bash -c "$RUN" 2>&1 | tee detonation.log
+  sh -c "$RUN" 2>&1 | tee detonation.log
 code=${PIPESTATUS[0]}
 set -e
 
