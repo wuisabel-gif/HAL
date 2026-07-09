@@ -116,9 +116,13 @@ It's the local twin of the CI workflow below.
 ./detonate.sh                                        # detonate HAL's own demo
 ./detonate.sh --image node:22 --build "npm ci" \
               --run "npm test" --dir ./suspicious-pr # any repo
+./detonate.sh --trace --image node:22 --run "npm test"  # + behavior log
 ```
 
-Needs a running Docker daemon.
+`--trace` keeps egress denied but records what the code *tried* to do: the
+hostnames it tried to resolve (via a DNS-logging sink), the files it
+created or modified, and its exec/connect syscalls when the image ships
+`strace`. It reports intent, not success. Needs a running Docker daemon.
 
 ## Expected output (abridged)
 
