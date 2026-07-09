@@ -1,7 +1,9 @@
 module Hal.Program
 
 open System
+open System.IO
 open System.Collections.Generic
+open System.Text.Json
 open Extism.Sdk
 
 // ---------------------------------------------------------------------------
@@ -100,6 +102,67 @@ let loadPlugin (policy: PluginPolicy) : Plugin =
     new Plugin(manifest, functions, options)
 
 // ---------------------------------------------------------------------------
+// Policy file mode: point HAL at any wasm without editing this file.
+//
+//   dotnet run --project host -- policies.json
+//
+// The JSON lists a shared seed store and a set of plugins, each with the
+// capabilities it's granted and the calls to make. Same enforcement as the
+// demo -- the JSON only chooses what to grant, never how the grant is checked.
+// ---------------------------------------------------------------------------
+
+let private gs (e: JsonElement) : string =
+    match e.GetString() with null -> "" | s -> s
+
+let private tryProp (e: JsonElement) (name: string) =
+    match e.TryGetProperty(name) with
+    | true, v -> Some v
+    | _ -> None
+
+let private capabilitiesOf (p: JsonElement) : Capability list = [
+    match tryProp p "kvPrefix" with
+    | Some v when v.ValueKind = JsonValueKind.String -> yield KvNamespace(gs v)
+    | _ -> ()
+    match tryProp p "hosts" with
+    | Some v when v.ValueKind = JsonValueKind.Array ->
+        for h in v.EnumerateArray() do yield NetworkHost(gs h)
+    | _ -> ()
+    match tryProp p "fuel" with
+    | Some v when v.ValueKind = JsonValueKind.Number -> yield FuelLimit(v.GetInt64())
+    | _ -> ()
+]
+
+let private runFromPolicies (path: string) =
+    let root = JsonDocument.Parse(File.ReadAllText(path)).RootElement
+
+    match tryProp root "seed" with
+    | Some seeds when seeds.ValueKind = JsonValueKind.Array ->
+        for s in seeds.EnumerateArray() do
+            let bytes = [| for b in (s.GetProperty "bytes").EnumerateArray() -> byte (b.GetInt32()) |]
+            store.[gs (s.GetProperty "key")] <- bytes
+    | _ -> ()
+
+    for p in (root.GetProperty "plugins").EnumerateArray() do
+        let name = gs (p.GetProperty "name")
+        printfn "\n=== %s ===" name
+        let policy =
+            { Name = name
+              WasmPath = gs (p.GetProperty "wasm")
+              Capabilities = capabilitiesOf p }
+        use plugin = loadPlugin policy
+        for c in (p.GetProperty "calls").EnumerateArray() do
+            let fn = gs (c.GetProperty "function")
+            let input = match tryProp c "input" with Some v -> gs v | None -> ""
+            printf "  call %s(%s) -> " fn input
+            try
+                printfn "%s" (plugin.Call(fn, input))
+            with
+            | :? ExtismException as ex when ex.Message.Contains("fuel") ->
+                printfn "[HAL] killed: fuel/instruction budget exceeded"
+            | :? ExtismException as ex ->
+                printfn "[HAL] blocked: %s" ((ex.Message.Split('\n')).[0])
+
+// ---------------------------------------------------------------------------
 // Demo
 // ---------------------------------------------------------------------------
 
@@ -158,12 +221,17 @@ let private runEvil () =
         printfn "  runtime raised ExtismException: %s" ex.Message
 
 [<EntryPoint>]
-let main _ =
+let main argv =
     printfn "HAL -- a capability-secure plugin sandbox  (F# host + Rust/WASM plugins)"
     printfn "Every plugin starts with zero authority and gets only what its policy grants."
     printfn "When a plugin reaches past its grant, HAL politely refuses."
-    runGood ()
-    runEvil ()
-    printfn "\nDone.  The evil plugin failed at every turn -- not because we detected"
-    printfn "an attack, but because it was never handed the capability to begin with."
+    match argv with
+    | [| path |] ->
+        printfn "Loading policies from %s" path
+        runFromPolicies path
+    | _ ->
+        runGood ()
+        runEvil ()
+        printfn "\nDone.  The evil plugin failed at every turn -- not because we detected"
+        printfn "an attack, but because it was never handed the capability to begin with."
     0

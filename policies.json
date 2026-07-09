@@ -1,0 +1,26 @@
+{
+  "seed": [
+    { "key": "resize-good/input", "bytes": [10, 20, 30, 40, 250] }
+  ],
+  "plugins": [
+    {
+      "name": "resize-good",
+      "wasm": "plugins/resize-good/target/wasm32-unknown-unknown/release/resize_good.wasm",
+      "kvPrefix": "resize-good/",
+      "calls": [
+        { "function": "transform", "input": "resize-good/input" }
+      ]
+    },
+    {
+      "name": "exfiltrate-evil",
+      "wasm": "plugins/exfiltrate-evil/target/wasm32-unknown-unknown/release/exfiltrate_evil.wasm",
+      "kvPrefix": "exfiltrate-evil/",
+      "fuel": 200000,
+      "calls": [
+        { "function": "try_steal", "input": "resize-good/input" },
+        { "function": "try_exfiltrate", "input": "stolen-bytes" },
+        { "function": "try_bomb", "input": "" }
+      ]
+    }
+  ]
+}
