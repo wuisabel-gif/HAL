@@ -1,0 +1,65 @@
+# Detonate a pull request in a network-denied sandbox before you trust it.
+# Drop-in for ANY repo: copy this file to .github/workflows/ and edit the three
+# values under `env`. It builds deps on the host (network on) and then runs your
+# tests inside a container with no network and none of your secrets, so a PR
+# that tries to phone home or read a token fails in CI instead of on a laptop.
+#
+# Safety invariants -- do NOT weaken these:
+#   - on: pull_request (NEVER pull_request_target): a fork PR runs with a
+#     read-only token and zero repository secrets. pull_request_target would
+#     hand your secrets to untrusted PR code.
+#   - permissions: contents: read
+#   - the run step executes inside `docker --network none`; docker does not
+#     inherit the runner's env, so no secrets reach the untrusted code.
+#
+# ponytail: this isolates EXECUTION. The host build step still runs the PR's
+# build scripts / dependency install with network. To close that too, vendor
+# dependencies and build offline. Left as the upgrade path.
+name: detonate-pr
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: detonate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # 1. runtime image for your stack (node:22, python:3.12, golang:1.23, ...)
+  IMAGE: "node:22"
+  # 2. dependency/build step. Runs on the host WITH network. Leave "" to skip.
+  BUILD_CMD: "npm ci"
+  # 3. the untrusted run. Executes in the sandbox with NO network.
+  RUN_CMD: "npm test"
+
+jobs:
+  detonate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15   # backstop: a fork/CPU bomb can't hang CI forever
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build on host (network on)
+        if: env.BUILD_CMD != ''
+        run: ${{ env.BUILD_CMD }}
+
+      # The detonation. Source is mounted read-write so normal test runners
+      # (coverage, caches) work; the runner is ephemeral so that's harmless.
+      # The isolation that matters -- no network, no secrets, dropped caps,
+      # bounded memory/pids -- is enforced by the docker flags.
+      - name: Detonate in a network-denied sandbox
+        run: |
+          docker run --rm \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 512 \
+            --memory 2g \
+            --tmpfs /tmp \
+            -v "$PWD:/work" \
+            -w /work \
+            "$IMAGE" \
+            sh -c "$RUN_CMD"

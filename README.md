@@ -241,6 +241,11 @@ job unless all three capability boundaries held. It triggers on `pull_request`
 read-only token. It isolates the *execution*; isolating the build too means
 vendoring dependencies and building offline.
 
+For your own repos there's a generic, copy-pastable version:
+`templates/detonate-pr.yml`. Drop it in `.github/workflows/`, set three values
+(`IMAGE`, `BUILD_CMD`, `RUN_CMD`), and it runs your tests in the same
+network-denied, secret-free sandbox. A PR that phones home fails the job.
+
 - Canonical skill: `.claude/skills/capability-security-review/SKILL.md`
 - Cursor rule: `.cursor/rules/capability-security-review.mdc`
 - Codex: `AGENTS.md`
