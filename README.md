@@ -99,6 +99,13 @@ Each plugin entry lists only what it's granted (`kvPrefix`, `hosts`, `fuel`)
 and the calls to make; the shared `seed` pre-populates the store. See
 `policies.json` for the schema, which reproduces the built-in demo.
 
+To get a global `hal` command you can run from any directory:
+
+```bash
+./install.sh                 # installs to ~/.local (no sudo)
+hal my-policies.json         # wasm paths resolve against your cwd
+```
+
 ### Detonate untrusted code locally
 
 `detonate.sh` runs a build/test inside a throwaway `--network none` container
