@@ -85,6 +85,34 @@ Or step by step:
 dotnet run --project host
 ```
 
+### Point HAL at your own plugins
+
+The demo policies are the no-argument default. To run HAL as a generic
+capability-scoped runner, pass a policy file and it loads that instead of
+editing any F#:
+
+```bash
+dotnet run --project host -- policies.json
+```
+
+Each plugin entry lists only what it's granted (`kvPrefix`, `hosts`, `fuel`)
+and the calls to make; the shared `seed` pre-populates the store. See
+`policies.json` for the schema, which reproduces the built-in demo.
+
+### Detonate untrusted code locally
+
+`detonate.sh` runs a build/test inside a throwaway `--network none` container
+with no host secrets, dropped capabilities, and a bounded memory/pid budget.
+It's the local twin of the CI workflow below.
+
+```bash
+./detonate.sh                                        # detonate HAL's own demo
+./detonate.sh --image node:22 --build "npm ci" \
+              --run "npm test" --dir ./suspicious-pr # any repo
+```
+
+Needs a running Docker daemon.
+
 ## Expected output (abridged)
 
 ```

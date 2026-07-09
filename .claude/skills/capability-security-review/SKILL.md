@@ -91,8 +91,13 @@ Instead:
   `pip install`, `cargo run`, `make`, or run the app for an untrusted diff on
   the developer's machine. This refusal is the correct behavior, not an
   inconvenience.
-- **Route it to an isolated environment** where overreach hits a wall instead
-  of real assets. In rough order of cheap-and-available:
+- **Use a ready sandbox if the repo has one.** If a `detonate.sh` (or
+  equivalent network-denied container wrapper) exists at the repo root, run the
+  untrusted build/test through it and read the report, e.g.
+  `./detonate.sh --build "npm ci" --image node:22 --run "npm test" --dir .`.
+  That is the enacted version of this whole section.
+- **Otherwise route it to an isolated environment** where overreach hits a wall
+  instead of real assets. In rough order of cheap-and-available:
   - an ephemeral container with no secrets mounted and `--network none`
     (add a network only after review, scoped to the hosts the purpose needs);
   - a disposable CI runner or cloud VM you can throw away after;
